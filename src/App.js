@@ -482,6 +482,8 @@ export default function Dex() {
   const [defaultCardId, setDefaultCardId] = useState(() => {
     try { return localStorage.getItem("gg-default-card") || null; } catch { return null; }
   });
+  const [creatorEmail, setCreatorEmail] = useState("");
+  const [creatorSubmitted, setCreatorSubmitted] = useState(false);
   const gamesSectionRef = useRef(null);
 
   useEffect(() => {
@@ -514,6 +516,7 @@ export default function Dex() {
     setSurfacedGames([]);
     setView("recommendations");
     window.scrollTo({ top: 0, behavior: "instant" });
+    window.posthog?.capture('funnel_step', { step: 'step1_pick_games', gamesSelected: selectedGames.length });
   };
 
   const handleSearchSelect = (game) => {
@@ -531,7 +534,11 @@ export default function Dex() {
 
   const toggleGame = (id) => setSelectedGames((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
   const toggleHeart = (id) => setHeartedGames((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  const toggleRating = (id, rating) => setGameRatings((prev) => prev[id] === rating ? { ...prev, [id]: undefined } : { ...prev, [id]: rating });
+  const toggleRating = (id, rating) => {
+    const newRating = gameRatings[id] === rating ? undefined : rating;
+    setGameRatings((prev) => ({ ...prev, [id]: newRating }));
+    if (newRating) window.posthog?.capture('game_rated', { gameId: id, rating: newRating });
+  };
 
   const generateCard = () => {
     const archetype = pickArchetype(selectedGames);
@@ -553,6 +560,7 @@ export default function Dex() {
     setCurrentCard(card);
     setView("card");
     window.history.pushState({}, "", `?card=${card.id}`);
+    window.posthog?.capture('card_created', { archetype: archetype.id, gameCount: selectedGames.length, vibe: vibe || "chill", traitCount: card.traits.length });
   };
 
   const copyShareLink = async () => {
@@ -560,6 +568,7 @@ export default function Dex() {
     try {
       if (navigator.share) await navigator.share({ title: `${currentCard.name}'s Dex`, url });
       else { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); }
+      window.posthog?.capture('card_shared', { cardId: currentCard.id, archetype: currentCard.archetype });
     } catch {}
   };
 
@@ -576,6 +585,7 @@ export default function Dex() {
     const cards = loadCardsByEmail(returnEmail);
     setSavedCards(cards);
     setView("dashboard");
+    window.posthog?.capture('returning_user_login', { cardCount: cards.length });
   };
 
   const removeFromWishlist = (gameId) => {
@@ -1046,7 +1056,7 @@ export default function Dex() {
             </div>
 
             <div style={{ marginTop: "32px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-              <button onClick={() => setView("naming")} style={{ ...primaryBtn, background: "linear-gradient(135deg, #6366F1 0%, #EC4899 100%)" }}>
+              <button onClick={() => { setView("naming"); window.posthog?.capture('funnel_step', { step: 'step2_recommendations', gamesSelected: selectedGames.length, gamesHearted: heartedGames.length, gamesRated: Object.values(gameRatings).filter(Boolean).length }); }} style={{ ...primaryBtn, background: "linear-gradient(135deg, #6366F1 0%, #EC4899 100%)" }}>
                 continue <span style={{ marginLeft: "8px" }}>→</span>
               </button>
               <button onClick={() => setView("landing")} style={secondaryBtn}>back</button>
@@ -1138,7 +1148,7 @@ export default function Dex() {
             </div>
 
             <div style={{ marginTop: "32px", display: "flex", gap: "12px" }}>
-              <button onClick={() => setView("vibe")} disabled={!name.trim()} style={{ ...primaryBtn, opacity: name.trim() ? 1 : 0.4, cursor: name.trim() ? "pointer" : "not-allowed" }}>continue <span style={{ marginLeft: "8px" }}>→</span></button>
+              <button onClick={() => { setView("vibe"); window.posthog?.capture('funnel_step', { step: 'step3_naming', name: name.trim() ? 'provided' : 'anonymous', emailProvided: !!email.trim() }); }} disabled={!name.trim()} style={{ ...primaryBtn, opacity: name.trim() ? 1 : 0.4, cursor: name.trim() ? "pointer" : "not-allowed" }}>continue <span style={{ marginLeft: "8px" }}>→</span></button>
               <button onClick={() => setView("recommendations")} style={secondaryBtn}>back</button>
             </div>
           </div>
@@ -1345,6 +1355,136 @@ export default function Dex() {
     );
   }
 
+  // ==================== FOR CREATORS ====================
+  if (view === "creators") {
+    return (
+      <div style={wrapStyle}>
+        <Backdrop />
+        <nav style={navStyle}>
+          <div onClick={restart} style={{ ...logoStyle, cursor: "pointer" }}>
+            <span style={{ fontSize: "28px" }}>🎮</span>
+            <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "22px", fontWeight: 600, letterSpacing: "-0.5px" }}>dex</span>
+          </div>
+          <div style={{ display: "flex", gap: "24px", alignItems: "center", fontSize: "14px", color: "#64748B" }}>
+            <a onClick={restart} style={{ ...linkStyle, cursor: "pointer" }}>for gamers</a>
+            <a style={{ ...linkStyle, color: "#6366F1", fontWeight: 600 }}>for creators</a>
+          </div>
+        </nav>
+
+        <section style={{ maxWidth: "640px", margin: "0 auto", padding: "80px 40px 60px", textAlign: "center", animation: "fadeIn 0.5s ease" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: "8px", background: "#EEF2FF", padding: "6px 14px", borderRadius: "999px", fontSize: "12px", fontWeight: 600, color: "#6366F1", marginBottom: "24px", border: "1px solid #C7D2FE" }}>
+            <span style={{ width: "6px", height: "6px", background: "#6366F1", borderRadius: "50%", display: "inline-block" }}></span>
+            early access
+          </div>
+
+          <h1 style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "48px", lineHeight: "1.1", letterSpacing: "-1.5px", fontWeight: 500, color: "#0F172A", margin: "0 0 20px" }}>
+            find your next{" "}
+            <span style={{ background: "linear-gradient(135deg, #6366F1 0%, #EC4899 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontStyle: "italic" }}>players</span>.
+          </h1>
+
+          <p style={{ fontSize: "17px", lineHeight: "1.65", color: "#475569", maxWidth: "520px", margin: "0 auto 16px" }}>
+            Dex profiles every player by archetype, playstyle, and the games they love. As a game creator, you'll be able to find players who match your game's audience — and invite them to playtest, review, or try your next release.
+          </p>
+
+          <p style={{ fontSize: "15px", lineHeight: "1.6", color: "#64748B", maxWidth: "480px", margin: "0 auto 40px" }}>
+            We're building the creator side now. Sign up for early access and be the first to tap into Dex's player network.
+          </p>
+
+          {!creatorSubmitted ? (
+            <div style={{ maxWidth: "420px", margin: "0 auto" }}>
+              <div style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
+                <input
+                  type="email"
+                  value={creatorEmail}
+                  onChange={(e) => setCreatorEmail(e.target.value)}
+                  placeholder="your work email"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && creatorEmail.trim() && creatorEmail.includes("@")) {
+                      try { localStorage.setItem("dex-creator-email", creatorEmail.trim()); } catch {}
+                      window.posthog?.capture('creator_signup', { email: creatorEmail.trim() });
+                      setCreatorSubmitted(true);
+                    }
+                  }}
+                  style={{
+                    flex: 1, padding: "14px 18px", borderRadius: "12px",
+                    border: "2px solid #E2E8F0", fontSize: "15px", fontFamily: "inherit",
+                    outline: "none", transition: "border 0.2s",
+                    background: "white",
+                  }}
+                  onFocus={(e) => e.target.style.borderColor = "#6366F1"}
+                  onBlur={(e) => e.target.style.borderColor = "#E2E8F0"}
+                />
+                <button
+                  onClick={() => {
+                    if (creatorEmail.trim() && creatorEmail.includes("@")) {
+                      try { localStorage.setItem("dex-creator-email", creatorEmail.trim()); } catch {}
+                      window.posthog?.capture('creator_signup', { email: creatorEmail.trim() });
+                      setCreatorSubmitted(true);
+                    }
+                  }}
+                  disabled={!creatorEmail.trim() || !creatorEmail.includes("@")}
+                  style={{
+                    ...primaryBtn,
+                    padding: "14px 24px",
+                    opacity: creatorEmail.trim() && creatorEmail.includes("@") ? 1 : 0.4,
+                    cursor: creatorEmail.trim() && creatorEmail.includes("@") ? "pointer" : "not-allowed",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  get early access
+                </button>
+              </div>
+              <div style={{ fontSize: "12px", color: "#94A3B8" }}>
+                No spam. We'll only reach out when creator tools are ready.
+              </div>
+            </div>
+          ) : (
+            <div style={{ maxWidth: "420px", margin: "0 auto", animation: "fadeIn 0.4s ease" }}>
+              <div style={{
+                padding: "28px 32px", background: "white", borderRadius: "20px",
+                border: "1px solid #C7D2FE", boxShadow: "0 8px 24px rgba(99,102,241,0.08)",
+              }}>
+                <div style={{ fontSize: "32px", marginBottom: "12px" }}>🎉</div>
+                <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "20px", fontWeight: 600, color: "#0F172A", marginBottom: "8px" }}>you're on the list</div>
+                <div style={{ fontSize: "14px", color: "#64748B", lineHeight: "1.5" }}>
+                  We'll reach out to <strong style={{ color: "#334155" }}>{creatorEmail}</strong> when creator tools are ready. In the meantime, try the player side — pull your own Dex and see how players get profiled.
+                </div>
+                <button onClick={restart} style={{ ...primaryBtn, marginTop: "20px", padding: "12px 24px" }}>
+                  pull my Dex →
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* What creators will get */}
+          <div style={{ marginTop: "64px", textAlign: "left" }}>
+            <div style={{ fontSize: "10px", fontWeight: 700, color: "#6366F1", letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: "16px", textAlign: "center" }}>coming soon</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
+              {[
+                { emoji: "🎯", title: "targeted playtesting", desc: "Find players who match your game's genre and style. Invite Explorers to test your open-world RPG, or Competitors for your PvP fighter." },
+                { emoji: "📊", title: "audience insights", desc: "See which archetypes and traits are most drawn to games like yours. Understand your audience before you launch." },
+                { emoji: "📣", title: "launch amplification", desc: "Reach players who've wishlisted similar games. Turn Dex profiles into your first wave of engaged players." },
+              ].map((item) => (
+                <div key={item.title} style={{
+                  padding: "24px", background: "white", borderRadius: "16px",
+                  border: "1px solid #F1F5F9", textAlign: "left",
+                }}>
+                  <div style={{ fontSize: "24px", marginBottom: "10px" }}>{item.emoji}</div>
+                  <div style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "16px", fontWeight: 600, color: "#0F172A", marginBottom: "6px" }}>{item.title}</div>
+                  <div style={{ fontSize: "13px", color: "#64748B", lineHeight: "1.5" }}>{item.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <footer style={{ textAlign: "center", padding: "40px", fontSize: "13px", color: "#94A3B8" }}>
+          <div>made for players and creators</div>
+        </footer>
+      </div>
+    );
+  }
+
   // ==================== LANDING ====================
   return (
     <div style={wrapStyle}>
@@ -1355,7 +1495,7 @@ export default function Dex() {
           <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "22px", fontWeight: 600, letterSpacing: "-0.5px" }}>dex</span>
         </div>
         <div style={{ display: "flex", gap: "24px", alignItems: "center", fontSize: "14px", color: "#64748B" }}>
-          <a style={linkStyle}>for creators</a>
+          <a onClick={() => { setView("creators"); window.posthog?.capture('page_view', { page: 'creators' }); }} style={{ ...linkStyle, cursor: "pointer" }}>for creators</a>
           <a style={linkStyle}>for gamers</a>
           <a style={linkStyle}>how it works</a>
           <button onClick={() => { setView("returning"); window.history.pushState({}, "", "?returning=true"); }}
@@ -1378,7 +1518,7 @@ export default function Dex() {
         </p>
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
           <button onClick={scrollToGames} style={primaryBtn}>Pull my Dex <span style={{ marginLeft: "8px" }}>↓</span></button>
-          <button style={secondaryBtn}>I'm a studio</button>
+          <button onClick={() => { setView("creators"); window.posthog?.capture('page_view', { page: 'creators', source: 'im_a_studio' }); }} style={secondaryBtn}>I'm a studio</button>
         </div>
         <div style={{ marginTop: "36px", display: "flex", gap: "16px", alignItems: "center", color: "#94A3B8", fontSize: "13px", justifyContent: "center" }}>
           <div style={{ display: "flex" }}>
