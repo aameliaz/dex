@@ -516,7 +516,7 @@ export default function Dex() {
     setSurfacedGames([]);
     setView("recommendations");
     window.scrollTo({ top: 0, behavior: "instant" });
-    window.posthog?.capture('funnel_step', { step: 'step1_pick_games', gamesSelected: selectedGames.length });
+    
   };
 
   const handleSearchSelect = (game) => {
@@ -537,7 +537,7 @@ export default function Dex() {
   const toggleRating = (id, rating) => {
     const newRating = gameRatings[id] === rating ? undefined : rating;
     setGameRatings((prev) => ({ ...prev, [id]: newRating }));
-    if (newRating) window.posthog?.capture('game_rated', { gameId: id, rating: newRating });
+
   };
 
   const generateCard = () => {
@@ -560,7 +560,7 @@ export default function Dex() {
     setCurrentCard(card);
     setView("card");
     window.history.pushState({}, "", `?card=${card.id}`);
-    window.posthog?.capture('card_created', { archetype: archetype.id, gameCount: selectedGames.length, vibe: vibe || "chill", traitCount: card.traits.length });
+
   };
 
   const copyShareLink = async () => {
@@ -568,7 +568,7 @@ export default function Dex() {
     try {
       if (navigator.share) await navigator.share({ title: `${currentCard.name}'s Dex`, url });
       else { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 2000); }
-      window.posthog?.capture('card_shared', { cardId: currentCard.id, archetype: currentCard.archetype });
+
     } catch {}
   };
 
@@ -585,7 +585,7 @@ export default function Dex() {
     const cards = loadCardsByEmail(returnEmail);
     setSavedCards(cards);
     setView("dashboard");
-    window.posthog?.capture('returning_user_login', { cardCount: cards.length });
+
   };
 
   const removeFromWishlist = (gameId) => {
@@ -1056,7 +1056,7 @@ export default function Dex() {
             </div>
 
             <div style={{ marginTop: "32px", display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-              <button onClick={() => { setView("naming"); window.posthog?.capture('funnel_step', { step: 'step2_recommendations', gamesSelected: selectedGames.length, gamesHearted: heartedGames.length, gamesRated: Object.values(gameRatings).filter(Boolean).length }); }} style={{ ...primaryBtn, background: "linear-gradient(135deg, #6366F1 0%, #EC4899 100%)" }}>
+              <button onClick={() => setView("naming")} style={{ ...primaryBtn, background: "linear-gradient(135deg, #6366F1 0%, #EC4899 100%)" }}>
                 continue <span style={{ marginLeft: "8px" }}>→</span>
               </button>
               <button onClick={() => setView("landing")} style={secondaryBtn}>back</button>
@@ -1148,7 +1148,7 @@ export default function Dex() {
             </div>
 
             <div style={{ marginTop: "32px", display: "flex", gap: "12px" }}>
-              <button onClick={() => { setView("vibe"); window.posthog?.capture('funnel_step', { step: 'step3_naming', name: name.trim() ? 'provided' : 'anonymous', emailProvided: !!email.trim() }); }} disabled={!name.trim()} style={{ ...primaryBtn, opacity: name.trim() ? 1 : 0.4, cursor: name.trim() ? "pointer" : "not-allowed" }}>continue <span style={{ marginLeft: "8px" }}>→</span></button>
+              <button onClick={() => setView("vibe")} disabled={!name.trim()} style={{ ...primaryBtn, opacity: name.trim() ? 1 : 0.4, cursor: name.trim() ? "pointer" : "not-allowed" }}>continue <span style={{ marginLeft: "8px" }}>→</span></button>
               <button onClick={() => setView("recommendations")} style={secondaryBtn}>back</button>
             </div>
           </div>
@@ -1401,7 +1401,6 @@ export default function Dex() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && creatorEmail.trim() && creatorEmail.includes("@")) {
                       try { localStorage.setItem("dex-creator-email", creatorEmail.trim()); } catch {}
-                      window.posthog?.capture('creator_signup', { email: creatorEmail.trim() });
                       setCreatorSubmitted(true);
                     }
                   }}
@@ -1418,7 +1417,6 @@ export default function Dex() {
                   onClick={() => {
                     if (creatorEmail.trim() && creatorEmail.includes("@")) {
                       try { localStorage.setItem("dex-creator-email", creatorEmail.trim()); } catch {}
-                      window.posthog?.capture('creator_signup', { email: creatorEmail.trim() });
                       setCreatorSubmitted(true);
                     }
                   }}
@@ -1495,7 +1493,7 @@ export default function Dex() {
           <span style={{ fontFamily: "'Fraunces', Georgia, serif", fontSize: "22px", fontWeight: 600, letterSpacing: "-0.5px" }}>dex</span>
         </div>
         <div style={{ display: "flex", gap: "24px", alignItems: "center", fontSize: "14px", color: "#64748B" }}>
-          <a onClick={() => { setView("creators"); window.posthog?.capture('page_view', { page: 'creators' }); }} style={{ ...linkStyle, cursor: "pointer" }}>for creators</a>
+          <a onClick={() => setView("creators")} style={{ ...linkStyle, cursor: "pointer" }}>for creators</a>
           <a style={linkStyle}>for gamers</a>
           <a style={linkStyle}>how it works</a>
           <button onClick={() => { setView("returning"); window.history.pushState({}, "", "?returning=true"); }}
@@ -1518,7 +1516,7 @@ export default function Dex() {
         </p>
         <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "center" }}>
           <button onClick={scrollToGames} style={primaryBtn}>Pull my Dex <span style={{ marginLeft: "8px" }}>↓</span></button>
-          <button onClick={() => { setView("creators"); window.posthog?.capture('page_view', { page: 'creators', source: 'im_a_studio' }); }} style={secondaryBtn}>I'm a studio</button>
+          <button onClick={() => setView("creators")} style={secondaryBtn}>I'm a studio</button>
         </div>
         <div style={{ marginTop: "36px", display: "flex", gap: "16px", alignItems: "center", color: "#94A3B8", fontSize: "13px", justifyContent: "center" }}>
           <div style={{ display: "flex" }}>
